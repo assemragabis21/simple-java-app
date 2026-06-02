@@ -43,29 +43,11 @@ pipeline {
             steps {
                 echo '🚀 Pushing to Docker Hub...'
                 sh """
-                    echo ${DOCKERHUB_CREDENTIALS_PSW} | \
-                    docker login -u ${DOCKERHUB_CREDENTIALS_USR} --password-stdin
+                    docker login -u ${DOCKERHUB_CREDENTIALS_USR}  -p ${DOCKERHUB_CREDENTIALS_PSW}
                     docker push ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG}
-                    docker push ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:latest
                 """
             }
         }
 
-    }
-
-    post {
-        success {
-            echo '✅ Pipeline SUCCESS - Image pushed to Docker Hub!'
-        }
-        failure {
-            echo '❌ Pipeline FAILED!'
-        }
-        always {
-            sh """
-                docker rmi ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG} || true
-                docker rmi ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:latest || true
-                docker logout || true
-            """
-        }
     }
 }
