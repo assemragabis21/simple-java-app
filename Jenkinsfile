@@ -1,37 +1,68 @@
-pipeline{
-    agent{
-        label 'aws-agent'
+pipeline {
+
+    agent any
+
+    environment {
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
+        DOCKERHUB_USERNAME    = 'assemragab105'   //
+        IMAGE_NAME            = 'simple-java-app'
+        IMAGE_TAG             = "latest"
     }
-    stages{
-        stage('build'){
-            steps{
-                script{
-                    sh 'docker build -t java-app .'
-                }
+
+    stages {
+
+        stage('Build App') {
+            steps {
+                echo '🔨 Building with Maven...'
+                sh 'mvn -f pom.xml clean package -DskipTests'
             }
         }
 
-        stage('push'){
-            steps{
-                script{
-                    withCredentials([usernamePassword(credentialsId: 'docker-hub', passwordVariable: 'Password', usernameVariable: 'Username')]) {
-                    sh 'docker login --username $Username --password $Password'
-                    sh 'docker tag java-app $Username/java-app'
-                    sh 'docker push $Username/java-app'
-                    }
-                }
+        stage('Test') {
+            steps {
+                echo '🧪 Running Tests...'
+                sh 'mvn -f pom.xml test'
             }
         }
 
-        stage('deploy'){
-            steps{
-                script{
-                    withAWS(credentials: 'aws-cli', region: 'us-east-2') {
-                    sh 'aws eks update-kubeconfig --region us-east-2 --name eks'
-                    sh 'kubectl apply -f ./k8s/deployment.yaml'
-                    }
-                }
+        stage('Build Docker Image') {
+            steps {
+                echo '🐳 Building Docker Image...'
+                sh """
+                    docker build -t ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG} .
+                    docker tag ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG} \
+                               ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:latest
+                """
             }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                echo '🚀 Pushing to Docker Hub...'
+                sh """
+                    echo ${DOCKERHUB_CREDENTIALS_PSW} | \
+                    docker login -u ${DOCKERHUB_CREDENTIALS_USR} --password-stdin
+                    docker push ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG}
+                    docker push ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:latest
+                """
+            }
+        }
+
+    }
+
+    post {
+        success {
+            echo '✅ Pipeline SUCCESS - Image pushed to Docker Hub!'
+        }
+        failure {
+            echo '❌ Pipeline FAILED!'
+        }
+        always {
+            sh """
+                docker rmi ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG} || true
+                docker rmi ${DOCKERHUB_USERNAME}/${IMAGE_NAME}:latest || true
+                docker logout || true
+            """
         }
     }
 }
