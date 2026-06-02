@@ -24,7 +24,7 @@ pipeline {
         stage('Test') {
             steps {
                 echo '🧪 Running Tests...'
-                sh 'mvn -f pom.xml test'
+                sh 'mvn test'
             }
         }
 
