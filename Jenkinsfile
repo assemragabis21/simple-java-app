@@ -14,7 +14,7 @@ pipeline {
         stage('Build App') {
             steps {
                 echo '🔨 Building with Maven...'
-                sh 'mvn -f pom.xml clean package -DskipTests'
+                sh 'mvn clean package -DskipTests'
             }
         }
 
